@@ -17,7 +17,8 @@
 #include "configs/config.h"
 #include <esp_task_wdt.h>
 
-#define WDT_TIMEOUT 3
+#define WDT_TIMEOUT_UPDATE 60
+#define WDT_TIMEOUT 5
 
 Relay relay;
 
@@ -37,6 +38,8 @@ float hum, temp = 0;
 
 unsigned long startOfSecond;
 
+unsigned long watchdogTimer = millis();
+
 const char* ssid = "Minh Trieu";
 const char* password = "13142528";
 
@@ -46,7 +49,12 @@ const char* password = "13142528";
 void setup() {
   Serial.begin(115200);
 
-  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_init(WDT_TIMEOUT_UPDATE, true); //enable panic so ESP32 restarts
+
+  if(Update.end(true)) {
+    esp_task_wdt_init(WDT_TIMEOUT, true);
+  }
+
   esp_task_wdt_add(NULL); //add current thread to WDT watch
 
   WiFi.mode(WIFI_STA);
@@ -78,11 +86,9 @@ void setup() {
   mqtt.publishConfig();
 }
 
-int watchdogTimer = millis();
-
 void loop() {
   // WifiConfig::process();
-  if (millis() - watchdogTimer >= 2000) {
+  if (millis() - watchdogTimer >= 4000) {
     Serial.println("Resetting WDT...");
     esp_task_wdt_reset();
     watchdogTimer = millis();
