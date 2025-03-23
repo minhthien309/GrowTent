@@ -25,6 +25,7 @@ class MQTT {
     static String createMqttMessage(String message, bool pushNotification, int isRestarted);
     static String createMqttPumpStatus(int type = 0);
     void publishConfig();
+    void handleMqttGetInfo();
 };
 
 #endif

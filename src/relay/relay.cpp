@@ -114,7 +114,7 @@ void Relay::handleAirConditioner(int hour, float temp) {
   //                   0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23
   // float tempSet[24] = {22,22,22,21,21,22,23,24,25,25,26,26,27,27,28,27,27,23,22,22,22,22,22,22};
   // float tempSet[24] = {21,21,21,20,20,21,22,23,24,24,25,25,26,26,27,26,26,22,21,21,21,21,21,21};
-  int tempSet = config_temp[hour];
+  float tempSet = config_temp[hour];
   if(temp > (tempSet + 1)) {
     if(!this->getRelayStatus(RELAY_1_PIN)) {
       this->turnOnRelay(RELAY_1_PIN);
@@ -199,4 +199,15 @@ void Relay::handleHumidityDevice(int hour, int minute, float humidity) {
 
 void Relay::setAutoMode(int relay, int mode) {
   _automaticMode[relay] = mode;
+}
+
+bool Relay::isRelayIdling() {
+  bool is_idling = true;
+  for (auto itr = _allRelays.begin(); itr != _allRelays.end(); ++itr) {
+    if(digitalRead(this->getRelayPin(itr->first))) {
+      is_idling = false;
+      break;
+    }
+  }
+  return is_idling;
 }

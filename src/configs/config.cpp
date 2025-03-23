@@ -144,8 +144,28 @@ JsonDocument Config::getConfig() {
 }
 
 void Config::updateConfig(String key, JsonDocument value, String filename) {
+  JsonDocument doc;
+  JsonArray data = doc.to<JsonArray>();
+
+  JsonArray arr = value.as<JsonArray>();
+  for (JsonVariant value : arr) {
+    if (value.is<const char*>()) {
+      const char* strValue = value.as<const char*>();
+      
+      if(String(strValue).toFloat() != 0 || strcmp(strValue, "0") == 0){
+        data.add(String(strValue).toFloat());
+      } else {
+        data.add(strValue);
+      }
+    } else if (value.is<float>()) {
+      data.add(value.as<float>());
+    } else if (value.is<int>()) {
+      data.add(value.as<int>());
+    }
+  }
+
   String json_value = "";
-  config_doc[key] = value;
+  config_doc[key] = doc;
   serializeJson(config_doc, json_value);
   this->saveConfig(filename, json_value);
   config_doc = this->getConfig();

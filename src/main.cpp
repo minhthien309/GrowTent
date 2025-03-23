@@ -15,6 +15,9 @@
 #include "ota_update/ota_update.h"
 #include <WiFi.h>
 #include "configs/config.h"
+#include <esp_task_wdt.h>
+
+#define WDT_TIMEOUT 3
 
 Relay relay;
 
@@ -43,11 +46,19 @@ const char* password = "13142528";
 void setup() {
   Serial.begin(115200);
 
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi ..");
+  int waitTime = 0;
   while (WiFi.status() != WL_CONNECTED) {
+    if(waitTime > 10) {
+      break;
+    }
     Serial.print('.');
+    waitTime++;
     delay(1000);
   }
   Serial.println(WiFi.localIP());
@@ -67,9 +78,17 @@ void setup() {
   mqtt.publishConfig();
 }
 
+int watchdogTimer = millis();
+
 void loop() {
   // WifiConfig::process();
-  if (WiFi.status() != WL_CONNECTED || (timeClient.getHours() == 5 && timeClient.getMinutes() == 0 && timeClient.getSeconds() == 10)) {
+  if (millis() - watchdogTimer >= 2000) {
+    Serial.println("Resetting WDT...");
+    esp_task_wdt_reset();
+    watchdogTimer = millis();
+  }
+
+  if ((timeClient.getHours() == 5 && timeClient.getMinutes() == 0 && timeClient.getSeconds() == 10)) {
     ESP.restart();
   }
   else {

@@ -28,6 +28,7 @@ class Relay {
     void parseAndSendRelayStatusMQTT();
     void turnOnAutoDevices();
     void setAutoMode(int relay, int mode);
+    bool isRelayIdling();
 };
 
 #endif

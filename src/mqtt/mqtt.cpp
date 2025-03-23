@@ -54,7 +54,9 @@ if(!mqttClient.connected()){
 }
 
 void MQTT::sendMessage(const char *channel, String message) {
-  mqttClient.publish(channel, (char*) message.c_str());
+  if(WiFi.status() == WL_CONNECTED) {
+    mqttClient.publish(channel, (char*) message.c_str());
+  }  
 }
 
 bool MQTT::reconnect() {
@@ -88,6 +90,9 @@ void MQTT::callback(char *topic, byte *payload, uint length) {
   }
   if(strcmp(topic, EVENT_MQTT_GET_CONFIG) == 0) {
     mqttInstance->handleMqttGetConfig(payload);
+  }
+  if(strcmp(topic, EVENT_MQTT_GET_INFO) == 0) {
+    mqttInstance->handleMqttGetInfo();
   }
 }
 
@@ -165,7 +170,6 @@ void MQTT::handleMqttGetConfig(byte *payload) {
       new_config["is_default"] = 1;
     }
     serializeJson(new_config, config_value_string);
-
     this->sendMessage(EVENT_MQTT_SEND_CONFIG, config_value_string);
   }
 }
@@ -179,6 +183,17 @@ void MQTT::publishConfig() {
   this->sendMessage(EVENT_MQTT_SEND_CONFIG, config_value_string);
 }
 
+void MQTT::handleMqttGetInfo() {
+  JsonDocument info;
+  info["ssid"] = WiFi.SSID();
+  info["ip"] = WiFi.localIP().toString();
+  info["mac"] = WiFi.macAddress();
+
+  String info_string = "";
+  serializeJson(info, info_string);
+  this->sendMessage(EVENT_MQTT_SEND_INFO, info_string);
+}
+
 bool MQTT::connect() {
   const char *status = "offline";
   if(mqttClient.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD, EVENT_MQTT_CONNECTION, 1, false, status)){
@@ -188,6 +203,7 @@ bool MQTT::connect() {
     mqttClient.subscribe(EVENT_RELAY_CONTROL);
     mqttClient.subscribe(EVENT_MQTT_CONFIG);
     mqttClient.subscribe(EVENT_MQTT_GET_CONFIG);
+    mqttClient.subscribe(EVENT_MQTT_GET_INFO);
   }
   return mqttClient.connected();
 }
