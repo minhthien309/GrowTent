@@ -8,7 +8,7 @@
 #define MQTT_PASSWORD "zd1900cm"
 #define MQTT_PORT 309
 
-#define IS_DEV ""
+#define IS_DEV "dev"
 
 #define MQTT_CLIENT_ID "grow-tent-smart-controller" IS_DEV
 #define EVENT_MQTT_PREFIX "grow-tent"

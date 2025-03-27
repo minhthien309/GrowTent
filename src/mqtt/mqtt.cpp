@@ -15,13 +15,46 @@ void MQTT::setup() {
   mqttClient.setCallback(callback);
   this->connect();
 
+  waitingAfterWifiReconnect = false;
+  wifiReconnectTimestamp = 0;
+
   String restartPayload = this->createMqttMessage("Device restarted. Reason: ", true, 1);
   this->sendMessage(EVENT_MESSAGE, (char *)restartPayload.c_str());
   // this->sendMessage(EVENT_RELAY, this->createMqttPumpStatus());
 }
 
 void MQTT::handleMqtt() {
-if(!mqttClient.connected()){
+  if (WiFi.status() != WL_CONNECTED) {
+    if (mqttClient.connected()) {
+      mqttClient.disconnect();
+    }
+    return;
+  }
+  if (waitingAfterWifiReconnect) {
+    const unsigned long WIFI_GRACE_PERIOD = 5000; // 5 seconds grace period
+    if (millis() - wifiReconnectTimestamp < WIFI_GRACE_PERIOD) {
+      // Not enough time passed since WiFi reconnected, skip MQTT reconnection
+      return;
+    }
+    // Grace period over, clear the flag
+    waitingAfterWifiReconnect = false;
+    Serial.println("WiFi grace period over, proceeding with MQTT connection");
+    if (mqttClient.connected()) {
+      mqttClient.disconnect();
+    }
+  }
+  
+  bool isConnected = false;
+  try {
+    isConnected = mqttClient.connected();
+  } catch (...) {
+    Serial.println("Exception checking MQTT connection status");
+    isConnected = false;
+    // Force disconnect to clean up any bad state
+    mqttClient.disconnect();
+  }
+
+  if (!isConnected) {
     isReconnectMqtt = true;
 
     mqttRelay.turnOffAllRelays();
@@ -29,8 +62,21 @@ if(!mqttClient.connected()){
     long now = millis();
     if(now - lastReconnectAttempt > 5000){
       lastReconnectAttempt = now;
+
+      if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi not connected, skipping MQTT reconnect attempt");
+        return;
+      }
+
       // Attempt to reconnect
-      if(this->reconnect()){
+      bool reconnected = false;
+      try {
+        reconnected = this->reconnect();
+      } catch (...) {
+        Serial.println("Exception during MQTT reconnection attempt");
+        reconnected = false;
+      }
+      if(reconnected){
         lastReconnectAttempt = 0;
         isReconnectMqtt = false;
         reconnectAttemptTime = 0;
@@ -39,7 +85,7 @@ if(!mqttClient.connected()){
         // mqttSendWebhook->send("Reconnect mqtt");
         reconnectAttemptTime++;
         if(reconnectAttemptTime > 3){
-          // ESP.restart();
+          ESP.restart();
         }
       }
     }
@@ -47,16 +93,27 @@ if(!mqttClient.connected()){
   else{
     if(isReconnectMqtt){
       reconnectAttemptTime = 0;
+      isReconnectMqtt = false;
       // mqttSendWebhook->send("Connected mqtt");
     }
-    mqttClient.loop();
+    try {
+      mqttClient.loop();
+    } catch (...) {
+      Serial.println("Exception in MQTT loop - forcing disconnect");
+      mqttClient.disconnect();
+    }
   }
 }
 
 void MQTT::sendMessage(const char *channel, String message) {
-  if(WiFi.status() == WL_CONNECTED) {
-    mqttClient.publish(channel, (char*) message.c_str());
-  }  
+  try {
+    if(WiFi.status() == WL_CONNECTED) {
+      mqttClient.publish(channel, (char*) message.c_str());
+    } 
+  }
+  catch(...) {
+    mqttClient.disconnect();
+  }
 }
 
 bool MQTT::reconnect() {
@@ -196,14 +253,19 @@ void MQTT::handleMqttGetInfo() {
 
 bool MQTT::connect() {
   const char *status = "offline";
-  if(mqttClient.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD, EVENT_MQTT_CONNECTION, 1, false, status)){
-    this->sendMessage(EVENT_MESSAGE, "hello emqx");
-
-    this->sendMessage(EVENT_MQTT_CONNECTION, "online");
-    mqttClient.subscribe(EVENT_RELAY_CONTROL);
-    mqttClient.subscribe(EVENT_MQTT_CONFIG);
-    mqttClient.subscribe(EVENT_MQTT_GET_CONFIG);
-    mqttClient.subscribe(EVENT_MQTT_GET_INFO);
+  try {
+    if(mqttClient.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD, EVENT_MQTT_CONNECTION, 1, false, status)){
+      this->sendMessage(EVENT_MESSAGE, "hello emqx");
+  
+      this->sendMessage(EVENT_MQTT_CONNECTION, "online");
+      mqttClient.subscribe(EVENT_RELAY_CONTROL);
+      mqttClient.subscribe(EVENT_MQTT_CONFIG);
+      mqttClient.subscribe(EVENT_MQTT_GET_CONFIG);
+      mqttClient.subscribe(EVENT_MQTT_GET_INFO);
+    }
+  }
+  catch(...) {
+    mqttClient.disconnect();
   }
   return mqttClient.connected();
 }
@@ -234,4 +296,20 @@ String createMqttPumpStatus(int type){
     serializeJson(doc, pumpStatusPayload);
   }
   return (char*) pumpStatusPayload.c_str();
+}
+
+void MQTT::handleDisconnect() {
+  if(mqttClient.connected()){
+    mqttClient.disconnect();
+  }
+  isReconnectMqtt = true;
+  reconnectAttemptTime = 0;
+}
+
+void MQTT::forceDisconnect() {
+  mqttClient.disconnect();
+  isReconnectMqtt = true;
+  reconnectAttemptTime = 0;
+  waitingAfterWifiReconnect = true;
+  wifiReconnectTimestamp = millis();
 }

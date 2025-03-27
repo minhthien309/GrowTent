@@ -16,7 +16,8 @@ class MQTT {
     static void callback(char *topic, byte *payload, uint length);
     void handleMqttConfig(byte *payload);
     void handleMqttGetConfig(byte *payload);
-
+    unsigned long wifiReconnectTimestamp;
+    bool waitingAfterWifiReconnect;
   public:
     void setup();
     bool reconnect();
@@ -26,6 +27,8 @@ class MQTT {
     static String createMqttPumpStatus(int type = 0);
     void publishConfig();
     void handleMqttGetInfo();
+    void handleDisconnect();
+    void forceDisconnect();
 };
 
 #endif

@@ -40,11 +40,41 @@ unsigned long startOfSecond;
 
 unsigned long watchdogTimer = millis();
 
-const char* ssid = "Minh Trieu";
-const char* password = "13142528";
+unsigned long previousWifiMillis = 0;
+unsigned long intervalWifi = 3000;
+
+
+const char* ssid = "MINHTHIEN-PC 5714";
+const char* password = "264Sx29*";
 
 // const char* ssid = "Hong Loan";
 // const char* password = "Hl0913991314";
+
+bool wifiWasConnected = false;
+
+// Add this function before setup()
+void WiFiEvent(WiFiEvent_t event) {
+  Serial.printf("[WiFi-event] event: %d\n", event);
+
+  switch(event) {
+    case SYSTEM_EVENT_STA_CONNECTED:
+      Serial.println("WiFi connected");
+      break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+      Serial.println("WiFi lost connection");
+      // Force MQTT disconnect to ensure clean reconnection when WiFi returns
+      mqtt.forceDisconnect();
+      break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+      Serial.println("WiFi got IP");
+      Serial.println(WiFi.localIP());
+      try {
+        mqtt.forceDisconnect();
+      } catch (...) {
+      }
+      break;
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -62,14 +92,20 @@ void setup() {
   Serial.print("Connecting to WiFi ..");
   int waitTime = 0;
   while (WiFi.status() != WL_CONNECTED) {
-    if(waitTime > 10) {
+    if(waitTime >= 4) {
       break;
     }
     Serial.print('.');
     waitTime++;
     delay(1000);
   }
-  Serial.println(WiFi.localIP());
+  if(WiFi.status() == WL_CONNECTED) {
+    Serial.println(WiFi.localIP());
+  }  
+
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+  WiFi.onEvent(WiFiEvent);
   
   otaUpdate.setup();
 
@@ -97,11 +133,15 @@ void loop() {
   if ((timeClient.getHours() == 5 && timeClient.getMinutes() == 0 && timeClient.getSeconds() == 10)) {
     ESP.restart();
   }
-  else {
+  
+  if(WiFi.status() == WL_CONNECTED) {
     timeClient.update();
     mqtt.handleMqtt();
+    otaUpdate.loop();
   }
-  otaUpdate.loop();
+  else {
+    mqtt.handleDisconnect();
+  }
   
   if(millis() - startOfSecond > 1000){
     startOfSecond = millis();
@@ -117,5 +157,11 @@ void loop() {
     relay.handleAirConditioner(timeClient.getHours(), temp);
     relay.handleLight(timeClient.getHours());
     relay.handleHumidityDevice(timeClient.getHours(), timeClient.getMinutes(), hum);
+
+    // if(WiFi.status() != WL_CONNECTED && (millis() - previousWifiMillis >= intervalWifi)) {
+      // WiFi.disconnect();
+      // WiFi.reconnect();
+      // previousWifiMillis = millis();
+    // }
   }
 }
