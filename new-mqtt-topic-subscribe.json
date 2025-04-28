@@ -1,0 +1,8 @@
+{
+  "topic": "relay-control",
+  "action": {
+    "auto_ac": 1,
+    "auto_light": 1,
+    "auto_humidity": 1
+  }
+}

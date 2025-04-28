@@ -1,0 +1,49 @@
+#include <ArduinoJson.h>
+
+String inputJson = "{\"relative\": \"humidity\", \"compare\": \"<=\", \"value\": \"93\", \"action\": \"off\"}";
+float currentHumidity = 85.5;
+
+void setup() {
+  Serial.begin(9600);
+
+  // Parse JSON
+  StaticJsonDocument<200> doc;
+  DeserializationError error = deserializeJson(doc, inputJson);
+
+  if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return;
+  }
+
+  const char* compare = doc["compare"];
+  float value = doc["value"].as<float>();
+
+  // So sánh
+  bool result = compareValues(currentHumidity, compare, value);
+
+  if (result) {
+    Serial.println("Action: OFF (điều kiện đúng)");
+    // digitalWrite(RELAY_PIN, LOW);  // Tắt relay
+  } else {
+    Serial.println("Không làm gì (điều kiện sai)");
+  }
+}
+
+void loop() {
+  // Không cần làm gì thêm
+}
+
+// Hàm thực hiện so sánh dựa trên dấu trong JSON
+bool compareValues(float current, const char* compare, float threshold) {
+  if (strcmp(compare, "<") == 0) return current < threshold;
+  if (strcmp(compare, "<=") == 0) return current <= threshold;
+  if (strcmp(compare, "==") == 0) return current == threshold;
+  if (strcmp(compare, ">=") == 0) return current >= threshold;
+  if (strcmp(compare, ">") == 0) return current > threshold;
+  if (strcmp(compare, "!=") == 0) return current != threshold;
+
+  // Nếu compare không hợp lệ
+  Serial.println("Lỗi: So sánh không hợp lệ");
+  return false;
+}

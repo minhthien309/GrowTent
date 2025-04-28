@@ -13,6 +13,7 @@ void MQTT::setup() {
   mqttClient.setKeepAlive(90);
   mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
   mqttClient.setCallback(callback);
+  mqttClient.setBufferSize(1024);
   this->connect();
 
   String restartPayload = this->createMqttMessage("Device restarted. Reason: ", true, 1);
@@ -24,22 +25,26 @@ void MQTT::handleMqtt() {
 if(!mqttClient.connected()){
     isReconnectMqtt = true;
 
-    mqttRelay.turnOffAllRelays();
+    // mqttRelay.turnOffAllRelays();
 
     long now = millis();
-    if(now - lastReconnectAttempt > 5000){
+    if(now - lastReconnectAttempt > 140000){
+      Serial.println("Attempting MQTT connection...");
       lastReconnectAttempt = now;
+      mqttClient.setSocketTimeout(3);
+
       // Attempt to reconnect
       if(this->reconnect()){
         lastReconnectAttempt = 0;
-        isReconnectMqtt = false;
         reconnectAttemptTime = 0;
       }
       else{
-        // mqttSendWebhook->send("Reconnect mqtt");
         reconnectAttemptTime++;
-        if(reconnectAttemptTime > 3){
-          // ESP.restart();
+        Serial.println("Failed to connect to MQTT broker, trying again in 5 seconds...");
+
+        if (reconnectAttemptTime > 12) {
+          reconnectAttemptTime = 0;
+          Serial.println("Multiple MQTT connection failures - will continue with reduced frequency");
         }
       }
     }
@@ -196,6 +201,15 @@ void MQTT::handleMqttGetInfo() {
 
 bool MQTT::connect() {
   const char *status = "offline";
+
+  uint32_t chipId = 0;
+  for (int i = 0; i < 17; i = i + 8) {
+    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+  }
+  String deviceId = MQTT_CLIENT_ID + String(chipId, HEX);
+  deviceId.toLowerCase();
+  // deviceId.c_str()
+  
   if(mqttClient.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD, EVENT_MQTT_CONNECTION, 1, false, status)){
     this->sendMessage(EVENT_MESSAGE, "hello emqx");
 

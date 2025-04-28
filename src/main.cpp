@@ -16,6 +16,7 @@
 #include <WiFi.h>
 #include "configs/config.h"
 #include <esp_task_wdt.h>
+#include <ESP32Ping.h>
 
 #define WDT_TIMEOUT_UPDATE 60
 #define WDT_TIMEOUT 5
@@ -39,12 +40,38 @@ float hum, temp = 0;
 unsigned long startOfSecond;
 
 unsigned long watchdogTimer = millis();
+unsigned long lastWifiReconnect = millis();
 
 const char* ssid = "Minh Trieu";
 const char* password = "13142528";
 
 // const char* ssid = "Hong Loan";
 // const char* password = "Hl0913991314";
+
+void WiFiEvent(WiFiEvent_t event) {
+  Serial.printf("[WiFi-event] event: %d\n", event);
+
+  switch(event) {
+    case SYSTEM_EVENT_STA_CONNECTED:
+      Serial.println("WiFi connected");
+      break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+      Serial.println("WiFi lost connection");
+      break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+      Serial.println("WiFi got IP");
+      Serial.println(WiFi.localIP());
+      break;
+    case SYSTEM_EVENT_STA_LOST_IP:
+      Serial.println("WiFi lost IP address");
+      break;
+  }
+}
+
+bool hasValidIP() {
+  IPAddress ip = WiFi.localIP();
+  return !(ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -62,7 +89,7 @@ void setup() {
   Serial.print("Connecting to WiFi ..");
   int waitTime = 0;
   while (WiFi.status() != WL_CONNECTED) {
-    if(waitTime > 10) {
+    if(waitTime >= 4) {
       break;
     }
     Serial.print('.');
@@ -70,6 +97,9 @@ void setup() {
     delay(1000);
   }
   Serial.println(WiFi.localIP());
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+  // WiFi.onEvent(WiFiEvent);
   
   otaUpdate.setup();
 
@@ -86,6 +116,8 @@ void setup() {
   mqtt.publishConfig();
 }
 
+// bool isPendingToRestart = false;
+
 void loop() {
   // WifiConfig::process();
   if (millis() - watchdogTimer >= 4000) {
@@ -97,11 +129,11 @@ void loop() {
   if ((timeClient.getHours() == 5 && timeClient.getMinutes() == 0 && timeClient.getSeconds() == 10)) {
     ESP.restart();
   }
-  else {
+  if(WiFi.status() == WL_CONNECTED) {
     timeClient.update();
     mqtt.handleMqtt();
+    otaUpdate.loop();
   }
-  otaUpdate.loop();
   
   if(millis() - startOfSecond > 1000){
     startOfSecond = millis();
@@ -117,5 +149,15 @@ void loop() {
     relay.handleAirConditioner(timeClient.getHours(), temp);
     relay.handleLight(timeClient.getHours());
     relay.handleHumidityDevice(timeClient.getHours(), timeClient.getMinutes(), hum);
+
+    // bool isMatchedRestartTime = timeClient.getMinutes() % 10 == 0 && timeClient.getSeconds() == 0; 
+    // if(WiFi.status() == WL_CONNECTED && (!hasValidIP() || !Ping.ping("8.8.8.8")) && relay.getRelayStatus(RELAY_1_PIN) == 0 && isMatchedRestartTime) {
+    //   ESP.restart();
+    // }
+  }
+  if(WiFi.status() != WL_CONNECTED && millis() - lastWifiReconnect >= 120000) {
+    WiFi.disconnect();
+    WiFi.reconnect();
+    lastWifiReconnect = millis();
   }
 }

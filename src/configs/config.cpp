@@ -43,53 +43,53 @@ void Config::setup() {
       doc["default_config_light"]["on"] = 7;
       doc["default_config_light"]["off"] = 17;
       doc["default_config_humidity"][0]["min"] = 80;
-      doc["default_config_humidity"][0]["max"] = 85;
+      doc["default_config_humidity"][0]["max"] = 82;
       doc["default_config_humidity"][1]["min"] = 80;
-      doc["default_config_humidity"][1]["max"] = 85;
+      doc["default_config_humidity"][1]["max"] = 82;
       doc["default_config_humidity"][2]["min"] = 80;
-      doc["default_config_humidity"][2]["max"] = 85;
+      doc["default_config_humidity"][2]["max"] = 82;
       doc["default_config_humidity"][3]["min"] = 80;
-      doc["default_config_humidity"][3]["max"] = 85;
+      doc["default_config_humidity"][3]["max"] = 82;
       doc["default_config_humidity"][4]["min"] = 80;
-      doc["default_config_humidity"][4]["max"] = 85;
+      doc["default_config_humidity"][4]["max"] = 82;
       doc["default_config_humidity"][5]["min"] = 80;
-      doc["default_config_humidity"][5]["max"] = 85;
+      doc["default_config_humidity"][5]["max"] = 82;
       doc["default_config_humidity"][6]["min"] = 78;
-      doc["default_config_humidity"][6]["max"] = 83;
+      doc["default_config_humidity"][6]["max"] = 80;
       doc["default_config_humidity"][7]["min"] = 78;
-      doc["default_config_humidity"][7]["max"] = 83;
+      doc["default_config_humidity"][7]["max"] = 80;
       doc["default_config_humidity"][8]["min"] = 78;
-      doc["default_config_humidity"][8]["max"] = 83;
+      doc["default_config_humidity"][8]["max"] = 80;
       doc["default_config_humidity"][9]["min"] = 78;
-      doc["default_config_humidity"][9]["max"] = 83;
+      doc["default_config_humidity"][9]["max"] = 80;
       doc["default_config_humidity"][10]["min"] = 78;
-      doc["default_config_humidity"][10]["max"] = 83;
+      doc["default_config_humidity"][10]["max"] = 80;
       doc["default_config_humidity"][11]["min"] = 78;
-      doc["default_config_humidity"][11]["max"] = 83;
+      doc["default_config_humidity"][11]["max"] = 80;
       doc["default_config_humidity"][12]["min"] = 78;
-      doc["default_config_humidity"][12]["max"] = 83;
+      doc["default_config_humidity"][12]["max"] = 80;
       doc["default_config_humidity"][13]["min"] = 78;
-      doc["default_config_humidity"][13]["max"] = 83;
+      doc["default_config_humidity"][13]["max"] = 80;
       doc["default_config_humidity"][14]["min"] = 78;
-      doc["default_config_humidity"][14]["max"] = 83;
+      doc["default_config_humidity"][14]["max"] = 80;
       doc["default_config_humidity"][15]["min"] = 78;
-      doc["default_config_humidity"][15]["max"] = 83;
+      doc["default_config_humidity"][15]["max"] = 80;
       doc["default_config_humidity"][16]["min"] = 78;
-      doc["default_config_humidity"][16]["max"] = 83;
+      doc["default_config_humidity"][16]["max"] = 80;
       doc["default_config_humidity"][17]["min"] = 78;
-      doc["default_config_humidity"][17]["max"] = 83;
+      doc["default_config_humidity"][17]["max"] = 80;
       doc["default_config_humidity"][18]["min"] = 80;
-      doc["default_config_humidity"][18]["max"] = 85;
+      doc["default_config_humidity"][18]["max"] = 82;
       doc["default_config_humidity"][19]["min"] = 80;
-      doc["default_config_humidity"][19]["max"] = 85;
+      doc["default_config_humidity"][19]["max"] = 82;
       doc["default_config_humidity"][20]["min"] = 80;
-      doc["default_config_humidity"][20]["max"] = 85;
+      doc["default_config_humidity"][20]["max"] = 82;
       doc["default_config_humidity"][21]["min"] = 80;
-      doc["default_config_humidity"][21]["max"] = 85;
+      doc["default_config_humidity"][21]["max"] = 82;
       doc["default_config_humidity"][22]["min"] = 80;
-      doc["default_config_humidity"][22]["max"] = 85;
+      doc["default_config_humidity"][22]["max"] = 82;
       doc["default_config_humidity"][23]["min"] = 80;
-      doc["default_config_humidity"][23]["max"] = 85;
+      doc["default_config_humidity"][23]["max"] = 82;
 
       String default_config = "";
       serializeJson(doc, default_config);
@@ -144,28 +144,62 @@ JsonDocument Config::getConfig() {
 }
 
 void Config::updateConfig(String key, JsonDocument value, String filename) {
-  JsonDocument doc;
-  JsonArray data = doc.to<JsonArray>();
-
-  JsonArray arr = value.as<JsonArray>();
-  for (JsonVariant value : arr) {
-    if (value.is<const char*>()) {
-      const char* strValue = value.as<const char*>();
-      
-      if(String(strValue).toFloat() != 0 || strcmp(strValue, "0") == 0){
-        data.add(String(strValue).toFloat());
-      } else {
-        data.add(strValue);
-      }
-    } else if (value.is<float>()) {
-      data.add(value.as<float>());
-    } else if (value.is<int>()) {
-      data.add(value.as<int>());
+  if(value.is<JsonArray>()) {
+    config_doc[key] = value;
+  }
+  else if (value.is<JsonObject>()) {
+    config_doc[key] = value;
+  }
+  else if (value.is<const char*>()) {
+    const char* strValue = value.as<const char*>();
+    
+    // Kiểm tra xem chuỗi có thể chuyển thành số không
+    if (String(strValue).toFloat() != 0 || strcmp(strValue, "0") == 0) {
+      config_doc[key] = String(strValue).toFloat();
+    } else {
+      config_doc[key] = strValue;
     }
   }
+  else {
+    config_doc[key] = value;
+  }
+  
+  //   JsonArray arr = value.as<JsonArray>();
+
+  //   if(arr.size() > 0 && arr[0].is<JsonObject>()) {
+  //     config_doc[key] = value;
+  //   }
+  //   else {
+  //     JsonDocument doc;
+  //     JsonArray data = doc.to<JsonArray>();
+
+  //     JsonArray arr = value.as<JsonArray>();
+  //     for (JsonVariant value : arr) {
+  //       if (value.is<const char*>()) {
+  //         const char* strValue = value.as<const char*>();
+          
+  //         if(String(strValue).toFloat() != 0 || strcmp(strValue, "0") == 0){
+  //           data.add(String(strValue).toFloat());
+  //         } else {
+  //           data.add(strValue);
+  //         }
+  //       } else if (value.is<float>()) {
+  //         data.add(value.as<float>());
+  //       } else if (value.is<int>()) {
+  //         data.add(value.as<int>());
+  //       }
+  //     }
+
+  //     config_doc[key] = data;
+  //   }
+  // }
+  // else {
+  //   config_doc[key] = value;
+  // }
+  
 
   String json_value = "";
-  config_doc[key] = doc;
+  // config_doc[key] = doc;
   serializeJson(config_doc, json_value);
   this->saveConfig(filename, json_value);
   config_doc = this->getConfig();
