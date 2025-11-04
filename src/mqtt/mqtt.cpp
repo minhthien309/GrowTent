@@ -140,6 +140,12 @@ void MQTT::handleMqttEvent(byte *payload) {
     mqttRelay.setAutoMode(RELAY_3_PIN, mqttDoc["auto_humidity"]);
   }
 
+  bool setHeter = !mqttDoc["heater"].isNull();
+  if(setHeter) {
+    HumTempSHT31 humTempClass;
+    humTempClass.setHeater(mqttDoc["heater"] == 1 ? true : false);
+  }
+
   JsonObject json = mqttDoc.as<JsonObject>();
 
   mqttRelay.handleRelay(mqttDoc); 
@@ -211,7 +217,8 @@ bool MQTT::connect() {
   // deviceId.c_str()
   
   if(mqttClient.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD, EVENT_MQTT_CONNECTION, 1, false, status)){
-    this->sendMessage(EVENT_MESSAGE, "hello emqx");
+    String message = "{\"content\": \"hello emqx\"}";
+    this->sendMessage(EVENT_MESSAGE, (char *)message.c_str());
 
     this->sendMessage(EVENT_MQTT_CONNECTION, "online");
     mqttClient.subscribe(EVENT_RELAY_CONTROL);

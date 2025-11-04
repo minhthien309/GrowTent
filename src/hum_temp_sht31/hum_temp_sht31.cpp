@@ -33,6 +33,19 @@ void HumTempSHT31::getHumTemp() {
 	}
 }
 
+void HumTempSHT31::setHeater(bool enable) {
+	if(isSensorConnected) {
+		sht30.heater(enable);
+	}
+}
+
+bool HumTempSHT31::getHeaterStatus() {
+	if(isSensorConnected) {
+		return sht30.isHeaterEnabled();
+	}
+	return false;
+}
+
 HumTemp HumTempSHT31::getHumTempObject() {
   return humtempsht31;
 }

@@ -17,6 +17,9 @@
 #include "configs/config.h"
 #include <esp_task_wdt.h>
 #include <ESP32Ping.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSerial.h>
 
 #define WDT_TIMEOUT_UPDATE 60
 #define WDT_TIMEOUT 5
@@ -33,14 +36,17 @@ MQTT mqtt;
 OtaUpdate otaUpdate;
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", 25200, 300000);
+NTPClient timeClient(ntpUDP, "vn.pool.ntp.org", 25200, 60000);
 Config config;
 float hum, temp = 0;
+AsyncWebServer server(80);
 
 unsigned long startOfSecond;
 
 unsigned long watchdogTimer = millis();
 unsigned long lastWifiReconnect = millis();
+
+bool isPendingToRestart = false;
 
 const char* ssid = "Minh Trieu";
 const char* password = "13142528";
@@ -114,6 +120,19 @@ void setup() {
 
   config.setup();
   mqtt.publishConfig();
+
+  WebSerial.begin(&server);
+  server.begin();
+
+  int waitForTimeSync = 0;
+  while(!timeClient.update()) {
+    timeClient.forceUpdate();
+    delay(200);
+    waitForTimeSync++;
+    if(waitForTimeSync >= 10) {
+      break;
+    }
+  }
 }
 
 // bool isPendingToRestart = false;
@@ -126,16 +145,32 @@ void loop() {
     watchdogTimer = millis();
   }
 
-  if ((timeClient.getHours() == 5 && timeClient.getMinutes() == 0 && timeClient.getSeconds() == 10)) {
-    ESP.restart();
-  }
   if(WiFi.status() == WL_CONNECTED) {
     timeClient.update();
     mqtt.handleMqtt();
     otaUpdate.loop();
   }
   
-  if(millis() - startOfSecond > 1000){
+  if(millis() - startOfSecond >= 1000){
+    bool isRelay1On = relay.getRelayStatus(RELAY_1_PIN) == 1;
+    bool isRelay2On = relay.getRelayStatus(RELAY_2_PIN) == 1;
+    bool isRelay3On = relay.getRelayStatus(RELAY_3_PIN) == 1;
+    bool isRelay4On = relay.getRelayStatus(RELAY_4_PIN) == 1;
+
+    // if ((timeClient.getHours() == 19 && timeClient.getMinutes() == 0 && timeClient.getSeconds() == 10)) {
+    //   if(isRelay1On || isRelay2On || isRelay3On || isRelay4On) {
+    //     isPendingToRestart = true;
+    //   }
+    //   else {
+    //     ESP.restart();
+    //   }    
+    // }
+
+    // if ((!isRelay1On && !isRelay2On && !isRelay3On && !isRelay4On) && isPendingToRestart) {
+    //   isPendingToRestart = false;
+    //   ESP.restart();
+    // }
+    
     startOfSecond = millis();
 
     if(timeClient.getSeconds() % TIME_TO_MEANSURING_HUM_TEMP == 0) {
@@ -149,6 +184,13 @@ void loop() {
     relay.handleAirConditioner(timeClient.getHours(), temp);
     relay.handleLight(timeClient.getHours());
     relay.handleHumidityDevice(timeClient.getHours(), timeClient.getMinutes(), hum);
+
+    // if(timeClient.getMinutes() % 30 == 0 && timeClient.getSeconds() <= 30) {
+    //   humTempClass.setHeater(true);
+    // }
+    // else {
+    //   humTempClass.setHeater(false);
+    // }
 
     // bool isMatchedRestartTime = timeClient.getMinutes() % 10 == 0 && timeClient.getSeconds() == 0; 
     // if(WiFi.status() == WL_CONNECTED && (!hasValidIP() || !Ping.ping("8.8.8.8")) && relay.getRelayStatus(RELAY_1_PIN) == 0 && isMatchedRestartTime) {

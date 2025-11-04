@@ -20,6 +20,9 @@ class HumTempSHT31 {
     void getHumTemp();
     void setup();
     HumTemp getHumTempObject();
+    void setHeater(bool enable);
+    bool getHeaterStatus();
+
   private:
     uint8_t _address;
 };

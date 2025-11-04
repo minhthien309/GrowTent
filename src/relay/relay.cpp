@@ -39,7 +39,7 @@ void Relay::turnOnAutoDevices() {
   _automaticMode[RELAY_4_PIN] = 1;
 
   JsonDocument doc;
-  doc["auto_humidifier"] = 1;
+  doc["auto_humidity"] = 1;
   doc["auto_light"] = 1;
 
   String message = "";
@@ -140,6 +140,8 @@ void Relay::handleLight(int hour) {
     if(hour >= config_light["on"] && hour <= config_light["off"]) {
       if(!this->getRelayStatus(RELAY_2_PIN)) {
         this->turnOnRelay(RELAY_2_PIN);
+        String message = "{\"content\": \"Debug: Turn on light relay at hour " + String(hour) + "\"}";
+        relayMQTT.sendMessage(EVENT_MESSAGE, (char *)message.c_str());
       }
     }
     else {

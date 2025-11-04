@@ -8,6 +8,7 @@
 #include "const.h"
 #include "relay/relay.h"
 #include "configs/config.h"
+#include "hum_temp_sht31/hum_temp_sht31.h" //
 
 class MQTT {
   private:
