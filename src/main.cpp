@@ -20,6 +20,7 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerial.h>
+#include "vpd/vpd.h"
 
 #define WDT_TIMEOUT_UPDATE 60
 #define WDT_TIMEOUT 5
@@ -178,7 +179,15 @@ void loop() {
       hum = humTempClass.getHumTempObject().hum;
       temp = humTempClass.getHumTempObject().temp;
 
-      mqtt.sendMessage(EVENT_MQTT_HUM_TEMP, "{\"hum\": " + String(hum) + ", \"temp\": " + String(temp) + "}");
+      // VPD chỉ để THEO DÕI trên dashboard, không điều khiển relay. Xem src/vpd/vpd.h
+      String vpdAirStr = "null", vpdLeafStr = "null";
+      if(vpdInputValid(temp, hum)) {
+        float leafOffset = config.getConfig()["vpd_leaf_offset"] | VPD_DEFAULT_LEAF_OFFSET;
+        vpdAirStr = String(vpdAir(temp, hum), 2);
+        vpdLeafStr = String(vpdLeaf(temp, hum, leafOffset), 2);
+      }
+
+      mqtt.sendMessage(EVENT_MQTT_HUM_TEMP, "{\"hum\": " + String(hum) + ", \"temp\": " + String(temp) + ", \"vpd_air\": " + vpdAirStr + ", \"vpd_leaf\": " + vpdLeafStr + "}");
     }
 
     relay.handleAirConditioner(timeClient.getHours(), temp);
